@@ -1,1 +1,4 @@
 ---
+galaxy_info:
+    - name: Ansible Galaxy WebUI role for Docker
+    
