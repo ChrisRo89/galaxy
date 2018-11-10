@@ -1,0 +1,49 @@
+---
+- name: Prepare PostgreSQL container
+  docker_container:
+    name: "{{ GALAXY_POSTGRES_CONTAINER_NAME }}"
+    image: postgres:latest
+    environment:
+        - POSTGRES_DB: "{{ GALAXY_POSTGRESS_DATABASE }}"
+        - POSTGRES_USER: "{{ GALAXY_POSTGRESS_USER }}"
+        - POSTGRES_PASSWORD: "{{ GALAXY_POSTGRESS_PASSWORD }}"
+
+- name: Prepare RabbitMQ container
+  docker_container:
+    name: "{{ GALAXY_RABBITMQ_HOST }}"
+    image: rabbitmq:latest
+    environment:
+        - RABBITMQ_DEFAULT_USER: "{{ GALAXY_RABBITMQ_USER }}"
+        - RABBITMQ_DEFAULT_PASS: "{{ GALAXY_RABBITMQ_PASSWORD }}"
+        - RABBITMQ_DEFAULT_VHOST: "{{ GALAXY_RABBITMQ_VHOST }}"
+
+- name: Prepare Galaxy Web container
+  docker_container:
+    name: "{{ GALAXY_WEB_CONTAINER_NAME }}"
+    image: ansible/galaxy:latest
+    command: ['/bin/bash', '-c', '/entrypoint.sh manage waitenv && /entrypoint.sh manage migrate --noinput && /entrypoint.sh run web']
+    published_port:
+        - 8000:8000
+    environment:
+        - GALAXY_SECRET_KEY: "{{ GALAXY_SECRET_KEY }}"
+        - GALAXY_DB_URL: "{{ GALAXY_POSTGRES_URL }}"
+        - GALAXY_RABBITMQ_HOST: "{{ GALAXY_RABBITMQ_HOST }}"
+        - GALAXY_RABBITMQ_PASSWORD: "{{ GALAXY_RABBITMQ_PASSWORD }}"
+    links: 
+        - "{{ GALAXY_POSTGRES_CONTAINER_NAME }}:{{ GALAXY_POSTGRES_HOST }}"
+        - "{{ GALAXY_RABBITMQ_CONTAINER_NAME }}:{{ GALAXY_RABBITMQ_HOST }}"
+
+- name: Prepare Galaxy Worker container
+  docker_container:
+    name: "{{ GALAXY_WORKER_CONTAINER_NAME }}"
+    image: ansible/galaxy:latest
+    command: ['/bin/bash', '-c', '/entrypoint.sh manage waitenv --wait-for galaxy:8000 && /entrypoint.sh run worker']
+    environment:
+        - GALAXY_SECRET_KEY: "{{ GALAXY_SECRET_KEY }}"
+        - GALAXY_DB_URL: "{{ GALAXY_POSTGRES_URL }}"
+        - GALAXY_RABBITMQ_HOST: "{{ GALAXY_RABBITMQ_HOST }}"
+        - GALAXY_RABBITMQ_PASSWORD: "{{ GALAXY_RABBITMQ_PASSWORD }}"
+        - C_FORCE_ROOT: 1
+    links: 
+        - "{{ GALAXY_POSTGRES_CONTAINER_NAME }}:{{ GALAXY_POSTGRES_HOST }}"
+        - "{{ GALAXY_RABBITMQ_CONTAINER_NAME }}:{{ GALAXY_RABBITMQ_HOST }}"
